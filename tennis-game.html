@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>クラシックテニスゲーム</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #006400;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: Arial, sans-serif;
+        }
+
+        #gameContainer {
+            text-align: center;
+        }
+
+        #canvas {
+            border: 4px solid #fff;
+            background-color: #228B22;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+        }
+
+        #score {
+            color: #fff;
+            font-size: 32px;
+            margin-bottom: 20px;
+            font-weight: bold;
+        }
+
+        #controls {
+            color: #fff;
+            margin-top: 20px;
+            font-size: 18px;
+        }
+
+        button {
+            font-size: 20px;
+            padding: 10px 20px;
+            margin: 10px;
+            cursor: pointer;
+            background-color: #fff;
+            color: #006400;
+            border: none;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+
+        button:hover {
+            background-color: #f0f0f0;
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <div id="score">
+            <span id="player1Score">0</span> - <span id="player2Score">0</span>
+        </div>
+        <canvas id="canvas" width="800" height="400"></canvas>
+        <div id="controls">
+            <button onclick="startGame()">スタート</button>
+            <button onclick="pauseGame()">ポーズ</button>
+            <p>プレイヤー1: W (上) / S (下) | プレイヤー2: ↑ / ↓</p>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        let gameRunning = false;
+        let gamePaused = false;
+        
+        const game = {
+            player1: {
+                x: 50,
+                y: canvas.height / 2 - 50,
+                width: 10,
+                height: 100,
+                speed: 5,
+                score: 0
+            },
+            player2: {
+                x: canvas.width - 60,
+                y: canvas.height / 2 - 50,
+                width: 10,
+                height: 100,
+                speed: 5,
+                score: 0,
+                aiSpeed: 3.5
+            },
+            ball: {
+                x: canvas.width / 2,
+                y: canvas.height / 2,
+                radius: 8,
+                speedX: 5,
+                speedY: 3,
+                maxSpeed: 12
+            }
+        };
+        
+        const keys = {
+            w: false,
+            s: false,
+            ArrowUp: false,
+            ArrowDown: false
+        };
+        
+        document.addEventListener('keydown', (e) => {
+            if (e.key in keys) {
+                keys[e.key] = true;
+            }
+        });
+        
+        document.addEventListener('keyup', (e) => {
+            if (e.key in keys) {
+                keys[e.key] = false;
+            }
+        });
+        
+        function drawCourt() {
+            ctx.fillStyle = '#228B22';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(canvas.width / 2, 0);
+            ctx.lineTo(canvas.width / 2, canvas.height);
+            ctx.stroke();
+            
+            ctx.beginPath();
+            ctx.arc(canvas.width / 2, canvas.height / 2, 50, 0, Math.PI * 2);
+            ctx.stroke();
+            
+            ctx.strokeRect(0, 0, canvas.width, canvas.height);
+        }
+        
+        function drawPaddle(player) {
+            ctx.fillStyle = '#fff';
+            ctx.fillRect(player.x, player.y, player.width, player.height);
+        }
+        
+        function drawBall() {
+            ctx.fillStyle = '#FFFF00';
+            ctx.beginPath();
+            ctx.arc(game.ball.x, game.ball.y, game.ball.radius, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        
+        function updatePaddles() {
+            if (keys.w && game.player1.y > 0) {
+                game.player1.y -= game.player1.speed;
+            }
+            if (keys.s && game.player1.y < canvas.height - game.player1.height) {
+                game.player1.y += game.player1.speed;
+            }
+            
+            const aiTarget = game.ball.y - game.player2.height / 2;
+            const aiDiff = aiTarget - game.player2.y;
+            
+            if (Math.abs(aiDiff) > game.player2.aiSpeed) {
+                if (aiDiff > 0 && game.player2.y < canvas.height - game.player2.height) {
+                    game.player2.y += game.player2.aiSpeed;
+                } else if (aiDiff < 0 && game.player2.y > 0) {
+                    game.player2.y -= game.player2.aiSpeed;
+                }
+            }
+            
+            if (keys.ArrowUp && game.player2.y > 0) {
+                game.player2.y -= game.player2.speed;
+            }
+            if (keys.ArrowDown && game.player2.y < canvas.height - game.player2.height) {
+                game.player2.y += game.player2.speed;
+            }
+        }
+        
+        function updateBall() {
+            game.ball.x += game.ball.speedX;
+            game.ball.y += game.ball.speedY;
+            
+            if (game.ball.y - game.ball.radius <= 0 || game.ball.y + game.ball.radius >= canvas.height) {
+                game.ball.speedY = -game.ball.speedY;
+            }
+            
+            if (
+                game.ball.x - game.ball.radius <= game.player1.x + game.player1.width &&
+                game.ball.x + game.ball.radius >= game.player1.x &&
+                game.ball.y >= game.player1.y &&
+                game.ball.y <= game.player1.y + game.player1.height
+            ) {
+                game.ball.speedX = Math.abs(game.ball.speedX);
+                const hitPos = (game.ball.y - game.player1.y) / game.player1.height;
+                game.ball.speedY = 8 * (hitPos - 0.5);
+                
+                if (Math.abs(game.ball.speedX) < game.ball.maxSpeed) {
+                    game.ball.speedX *= 1.05;
+                }
+            }
+            
+            if (
+                game.ball.x + game.ball.radius >= game.player2.x &&
+                game.ball.x - game.ball.radius <= game.player2.x + game.player2.width &&
+                game.ball.y >= game.player2.y &&
+                game.ball.y <= game.player2.y + game.player2.height
+            ) {
+                game.ball.speedX = -Math.abs(game.ball.speedX);
+                const hitPos = (game.ball.y - game.player2.y) / game.player2.height;
+                game.ball.speedY = 8 * (hitPos - 0.5);
+                
+                if (Math.abs(game.ball.speedX) < game.ball.maxSpeed) {
+                    game.ball.speedX *= 1.05;
+                }
+            }
+            
+            if (game.ball.x < 0) {
+                game.player2.score++;
+                updateScore();
+                resetBall();
+            } else if (game.ball.x > canvas.width) {
+                game.player1.score++;
+                updateScore();
+                resetBall();
+            }
+        }
+        
+        function resetBall() {
+            game.ball.x = canvas.width / 2;
+            game.ball.y = canvas.height / 2;
+            game.ball.speedX = (Math.random() > 0.5 ? 1 : -1) * 5;
+            game.ball.speedY = (Math.random() - 0.5) * 6;
+        }
+        
+        function updateScore() {
+            document.getElementById('player1Score').textContent = game.player1.score;
+            document.getElementById('player2Score').textContent = game.player2.score;
+            
+            if (game.player1.score >= 11 || game.player2.score >= 11) {
+                gameRunning = false;
+                const winner = game.player1.score >= 11 ? 'プレイヤー1' : 'プレイヤー2';
+                setTimeout(() => {
+                    alert(`${winner}の勝利！`);
+                }, 100);
+            }
+        }
+        
+        function gameLoop() {
+            if (!gameRunning || gamePaused) return;
+            
+            drawCourt();
+            updatePaddles();
+            updateBall();
+            drawPaddle(game.player1);
+            drawPaddle(game.player2);
+            drawBall();
+            
+            requestAnimationFrame(gameLoop);
+        }
+        
+        function startGame() {
+            if (!gameRunning) {
+                game.player1.score = 0;
+                game.player2.score = 0;
+                updateScore();
+                resetBall();
+                gameRunning = true;
+                gamePaused = false;
+                gameLoop();
+            }
+        }
+        
+        function pauseGame() {
+            gamePaused = !gamePaused;
+            if (!gamePaused && gameRunning) {
+                gameLoop();
+            }
+        }
+        
+        drawCourt();
+        drawPaddle(game.player1);
+        drawPaddle(game.player2);
+        drawBall();
+    </script>
+</body>
+</html>
